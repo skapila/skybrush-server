@@ -1336,6 +1336,30 @@ async def handle_SYS_TIME(message: FlockwaveMessage, sender: Client, hub: Messag
 def handle_SYS_VER(message: FlockwaveMessage, sender: Client, hub: MessageHub):
     return {"software": "skybrushd", "version": server_version}
 
+@app.message_hub.on("BOT-HELLO")
+def handle_BOT_HELLO(
+    message: FlockwaveMessage,
+    sender: Client,
+    hub: MessageHub,
+):
+    """
+    Custom built-in message:
+      Request : { "type": "BOT-HELLO", "text": "Hello Skybrush" }
+      Response: { "type": "BOT-HELLO", "reply": "Hello Samarth" }
+    """
+
+    text = message.body.get("text", "")
+
+    if text.strip() == "Hello Skybrush":
+        return {
+            "type": "BOT-HELLO",
+            "reply": "Hello Samarth",
+        }
+
+    return {
+        "type": "BOT-HELLO",
+        "reply": "Say: Hello Skybrush",
+    }
 
 @app.message_hub.on("UAV-INF")
 def handle_UAV_INF(message: FlockwaveMessage, sender: Client, hub: MessageHub):
