@@ -1,55 +1,32 @@
 import socketio
-import time
 
-sio = socketio.Client(
-    logger=True,
-    engineio_logger=True,
-    reconnection=True,
-    reconnection_attempts=5,
-    reconnection_delay=1,
-)
+sio = socketio.Client(logger=True, engineio_logger=True)
 
 @sio.event
 def connect():
-    print("✅ CONNECTED:", sio.sid)
+    print("✅ connected")
 
-    # listen BEFORE emit (safe)
-    msg = {
+    # SEND on event name = "fw"
+    sio.emit("fw", {
         "$fw.version": "1.0",
         "id": "test-1",
-        "body": {"type": "BOT-HELLO", "text": "Hello Skybrush"},
-    }
-    print("➡️ SENDING:", msg)
-    sio.emit("flockwave", msg)
+        "body": {
+            "type": "BOT-HELLO",
+            "text": "Hello Skybrush"
+        }
+    })
 
-@sio.event
-def connect_error(data):
-    print("❌ connect_error:", data)
+# LISTEN on event name = "fw"
+@sio.on("fw")
+def on_fw(msg):
+    print("📩 response:", msg)
+    sio.disconnect()
 
 @sio.event
 def disconnect():
-    print("❌ DISCONNECTED")
+    print("❌ disconnected")
 
-# Catch common server->client event names
-@sio.on("flockwave")
-def on_flockwave(msg):
-    print("📩 RX (flockwave):", msg)
+sio.connect("http://localhost:5000", namespaces=["/"], wait_timeout=10)
 
-@sio.on("message")
-def on_message(msg):
-    print("📩 RX (message):", msg)
-
-@sio.on("fw")
-def on_fw(msg):
-    print("📩 RX (fw):", msg)
-
-@sio.on("*")
-def catch_all(event, data):
-    print(f"📩 RX (*): event={event} data={data}")
-
-sio.connect("http://localhost:5000", wait_timeout=10)
-
-# keep alive long enough to receive reply
-time.sleep(15)
-
-sio.disconnect()
+# IMPORTANT: keep the script alive until disconnect
+sio.wait()
