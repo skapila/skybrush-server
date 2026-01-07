@@ -113,4 +113,6 @@ EXTENSIONS = {
         "enabled": True,
         # "route": "/webui",
     },
+    "odd_even_takeoff": {},
+
 }
