@@ -140,7 +140,7 @@ async def _arm_and_takeoff_odd_even(
 # -----------------------------
 # Message handler (thin)
 # -----------------------------
-async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender, hub):
+async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender,hub,app,logger):
     """
     Incoming body (example):
     {
@@ -150,9 +150,7 @@ async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender, hub):
       "network": "default"   # optional (kept for future use)
     }
     """
-    app = hub.app
-    log = getattr(app, "log", None) or getattr(hub, "log", None)
-
+    
     body = message.body or {}
     group = body.get("group", None)
     alt = body.get("alt", None)
@@ -188,7 +186,7 @@ async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender, hub):
             in_response_to=message,
         )
 
-    per_uav = await _arm_and_takeoff_odd_even(targets, alt_m, log)
+    per_uav = await _arm_and_takeoff_odd_even(targets, alt_m, logger)
 
     return hub.create_response_or_notification(
         body={
@@ -210,8 +208,11 @@ async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender, hub):
 async def run(app, configuration, logger):
     logger.info("odd_even extension loaded")
 
+    async def _handle(message, sender, hub):
+        return await handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender, hub, app, logger)
+
     handlers = {
-        "X-BOTLAB-ODD_EVEN-TAKEOFF": handle_X_BOTLAB_ODD_EVEN_TAKEOFF
+        "X-BOTLAB-ODD_EVEN-TAKEOFF": _handle
     }
 
     with app.message_hub.use_message_handlers(handlers):

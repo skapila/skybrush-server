@@ -11,7 +11,7 @@ def connect():
         "$fw.version": "1.0",
         "id": "odd-tk-10",
         "body": {
-            "type": "X-BOTLAB-GROUP-TAKEOFF",
+            "type": "X-BOTLAB-ODD_EVEN-TAKEOFF",
             "group": "odd",
             "alt": 10
         }
