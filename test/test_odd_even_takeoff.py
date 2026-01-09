@@ -7,14 +7,15 @@ def connect():
     print("✅ connected")
 
     # SEND on event name = "fw"
-    sio.emit("fw", {
+    sio.emit("fw",{
         "$fw.version": "1.0",
-        "id": "test-1",
+        "id": "odd-tk-10",
         "body": {
-            "type": "X-BOT-HELLO",
-            "text": "Hello Skybrush"
+            "type": "X-BOTLAB-GROUP-TAKEOFF",
+            "group": "odd",
+            "alt": 10
         }
-    })
+     })
 
 # LISTEN on event name = "fw"
 @sio.on("fw")
