@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import trio
 from flockwave.server.model.uav import UAV
 
-description = "BotLab custom odd_even ops (odd/even arm + takeoff via X-* messages)"
+description = "BotLab custom ops (inbuilt arm + custom takeoff via X-* messages)"
 schema = {}
 exports = {}
 dependencies = ("mavlink",)  # we rely on the mavlink extension API
@@ -16,21 +16,6 @@ dependencies = ("mavlink",)  # we rely on the mavlink extension API
 # -----------------------------
 # Helpers
 # -----------------------------
-def _uav_parity(uav: UAV) -> Optional[str]:
-    """
-    Returns "odd" / "even" based on system_id if present, otherwise digits in uav.id.
-    """
-    sid = getattr(uav, "system_id", None)
-    if isinstance(sid, int):
-        return "odd" if (sid % 2) == 1 else "even"
-
-    uid = getattr(uav, "id", "")
-    digits = "".join(ch for ch in uid if ch.isdigit())
-    if not digits:
-        return None
-    n = int(digits)
-    return "odd" if (n % 2) == 1 else "even"
-
 
 async def _await_driver_result(uav: UAV, results: dict) -> Any:
     """
@@ -81,9 +66,9 @@ async def _takeoff(uav: UAV, alt_m: float) -> None:
     await _await_driver_result(uav, results)
 
 
-def _collect_targets(app, group: str) -> List[UAV]:
+def _collect_targets(app ) -> List[UAV]:
     """
-    Collect connected UAV objects and filter by odd/even.
+    Collect connected UAV objects.
     """
     uav_ids = list(app.object_registry.ids_by_type(UAV))
     uavs: List[UAV] = []
@@ -94,16 +79,14 @@ def _collect_targets(app, group: str) -> List[UAV]:
         # if UAV has connectivity property, respect it
         if hasattr(u, "is_connected") and not u.is_connected:
             continue
-        p = _uav_parity(u)
-        if p == group:
-            uavs.append(u)
+        uavs.append(u)
     return uavs
 
 
 # -----------------------------
 # Core operation
 # -----------------------------
-async def _arm_and_takeoff_odd_even(
+async def _arm_and_takeoff(
     uavs: List[UAV],
     alt_m: float,
     log,
@@ -113,18 +96,19 @@ async def _arm_and_takeoff_odd_even(
     """
     results: Dict[str, Any] = {}
     lock = trio.Lock()
-
+    log.warn(f"Core Command in Loop")
     async def _one(uav: UAV):
         # jitter to reduce network burst
         await trio.sleep(random.random() * 1.5)
 
         try:
             await _set_guided_if_possible(uav, log)
-            await _arm(uav, log, force=True)
-            await _takeoff(uav, alt_m)
+            log.debug(f"Guided Command Send")
+            # await _arm(uav, log, force=True)
+            # await _takeoff(uav, alt_m)
 
-            async with lock:
-                results[uav.id] = {"ok": True, "stage": "takeoff_sent"}
+            # async with lock:
+            #     results[uav.id] = {"ok": True, "stage": "takeoff_sent"}
 
         except Exception as e:
             async with lock:
@@ -140,26 +124,18 @@ async def _arm_and_takeoff_odd_even(
 # -----------------------------
 # Message handler (thin)
 # -----------------------------
-async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender,hub,app,logger):
+async def handle_X_BOTLAB_ARM_TAKEOFF(message, sender,hub,app,logger):
     """
     Incoming body (example):
     {
-      "type": "X-BOTLAB-ODD_EVEN-TAKEOFF",
-      "group": "odd" | "even",
+      "type": "X-BOTLAB-ARM-TAKEOFF",
       "alt": 10,
       "network": "default"   # optional (kept for future use)
     }
     """
     
     body = message.body or {}
-    group = body.get("group", None)
     alt = body.get("alt", None)
-
-    if group not in ("odd", "even"):
-        return hub.create_response_or_notification(
-            body={"ok": False, "error": "group must be 'odd' or 'even'"},
-            in_response_to=message,
-        )
 
     try:
         alt_m = float(alt)
@@ -179,20 +155,19 @@ async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender,hub,app,logger):
     # mavlink = app.import_api("mavlink"); network = mavlink.find_network_by_id(network_id)
     # and fetch UAVs from that network. For now we select from object_registry (works in your setup).
 
-    targets = _collect_targets(app, group)
-    if not targets:
-        return hub.create_response_or_notification(
-            body={"ok": False, "error": f"no {group} UAVs online"},
-            in_response_to=message,
-        )
+    targets = _collect_targets(app)
+    # if not targets:
+    #     return hub.create_response_or_notification(
+    #         body={"ok": False, "error": f"no {group} UAVs online"},
+    #         in_response_to=message,
+    #     )
 
-    per_uav = await _arm_and_takeoff_odd_even(targets, alt_m, logger)
+    per_uav = await _arm_and_takeoff(targets, alt_m, logger)
 
     return hub.create_response_or_notification(
         body={
             "ok": True,
-            "type": "X-BOTLAB-ODD_EVEN-TAKEOFF",
-            "group": group,
+            "type": "X-BOTLAB-ARM-TAKEOFF",
             "alt": alt_m,
             "count": len(targets),
             "targets": [u.id for u in targets],
@@ -206,13 +181,13 @@ async def handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender,hub,app,logger):
 # Extension entrypoint
 # -----------------------------
 async def run(app, configuration, logger):
-    logger.info("Odd Even Takeoff extension loaded")
+    logger.info("Arm Takeoff extension loaded")
 
     async def _handle(message, sender, hub):
-        return await handle_X_BOTLAB_ODD_EVEN_TAKEOFF(message, sender, hub, app, logger)
+        return await handle_X_BOTLAB_ARM_TAKEOFF(message, sender, hub, app, logger)
 
     handlers = {
-        "X-BOTLAB-ODD_EVEN-TAKEOFF": _handle
+        "X-BOTLAB-ARM-TAKEOFF": _handle
     }
 
     with app.message_hub.use_message_handlers(handlers):

@@ -114,5 +114,6 @@ EXTENSIONS = {
         # "route": "/webui",
     },
     "odd_even_takeoff": {},
+    "arm_takeoff": {}
 
 }
