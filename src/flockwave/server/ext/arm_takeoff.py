@@ -96,19 +96,19 @@ async def _arm_and_takeoff(
     """
     results: Dict[str, Any] = {}
     lock = trio.Lock()
-    log.warn(f"Core Command in Loop")
+    log.debug(f"Core Command in Loop")
     async def _one(uav: UAV):
         # jitter to reduce network burst
         await trio.sleep(random.random() * 1.5)
-
         try:
             await _set_guided_if_possible(uav, log)
             log.debug(f"Guided Command Send")
-            # await _arm(uav, log, force=True)
-            # await _takeoff(uav, alt_m)
-
-            # async with lock:
-            #     results[uav.id] = {"ok": True, "stage": "takeoff_sent"}
+            await _arm(uav, log, force=True)
+            log.debug(f"Arming Command Send")
+            await _takeoff(uav, alt_m)
+            log.debug(f"Takeoff Command Send")
+            async with lock:
+               results[uav.id] = {"ok": True, "stage": "takeoff_sent"}
 
         except Exception as e:
             async with lock:
